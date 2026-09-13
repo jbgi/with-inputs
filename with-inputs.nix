@@ -64,14 +64,14 @@ let
       entry = inputs.${hostName} or null;
       getSubInput = e: if builtins.isAttrs e && e ? inputs then e.inputs.${subName} or null else null;
     in
-    getSubInput (if builtins.isFunction entry then (entry sources.${hostName}) else entry);
+    getSubInput (if builtins.isFunction entry then (entry (sources.${hostName} or sources)) else entry);
 
   # Resolve an inputs entry to an actual input value, or null if unresolvable.
   # Values with outPath but no _type go through mkInput so their flake.nix is loaded.
   resolveInput =
     name: v:
     if builtins.isFunction v then
-      resolveInput name (v sources.${name})
+      resolveInput name (v (sources.${name} or sources))
     else if isFollows v then
       if v.follows == "" then { } else walkPath v.follows
     else if isSpec v then

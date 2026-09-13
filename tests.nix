@@ -55,6 +55,15 @@ in
     expected = "hello";
   };
 
+  direct.test-direct-import-without-outPath-using-sources = {
+    # someLib = import ./path → the value is used as-is (no outPath, not a spec).
+    expr =
+      (with-inputs { nixpkgs = mkSrc "/our-nixpkgs"; } {
+        my-nixpkgs = sources: sources.nixpkgs;
+      }).my-nixpkgs.outPath;
+    expected = "/our-nixpkgs";
+  };
+
   direct.test-inputs-replaces-source = {
     expr = (with-inputs { foo = mkSrc "/original"; } { foo = mkSrc "/override"; }).foo.outPath;
     expected = "/override";
