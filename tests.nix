@@ -369,6 +369,21 @@ in
     expected = npins.nixpkgs.outPath;
   };
 
+  introspection.test-follow-sub-npins-with-inputs-input-with-source-arg = {
+    # s: my-lib.inputs.nixpkgs.follows = "with-inputs-dep/nixpkgs" → traverse native inputs
+    expr =
+      (with-inputs
+        {
+          my-lib = mkSrc ./fixtures/fake-flake;
+          with-inputs-dep = mkSrc ./fixtures/with-inputs-flake;
+        }
+        {
+          my-lib = s: { inputs.nixpkgs.follows = "with-inputs-dep/nixpkgs2"; };
+        }
+      ).my-lib.inputs.nixpkgs.outPath;
+    expected = npins.nixpkgs.outPath;
+  };
+
   real-flakes.test-npins-nix-maid-nixosModules-output-is-readable = {
     expr =
       (with-inputs npins { } (inputs: {

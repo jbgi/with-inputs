@@ -62,11 +62,9 @@ let
     hostName: subName:
     let
       entry = inputs.${hostName} or null;
+      getSubInput = e: if builtins.isAttrs e && e ? inputs then e.inputs.${subName} or null else null;
     in
-    if entry != null && builtins.isAttrs entry && entry ? inputs then
-      entry.inputs.${subName} or null
-    else
-      null;
+    getSubInput (if builtins.isFunction entry then (entry sources.${hostName}) else entry);
 
   # Resolve an inputs entry to an actual input value, or null if unresolvable.
   # Values with outPath but no _type go through mkInput so their flake.nix is loaded.
