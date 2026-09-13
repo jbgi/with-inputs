@@ -106,14 +106,57 @@ let
     let
       hasPath = sourceInfo ? outPath;
       isFlake = hasPath && (sourceInfo.flake or true);
+      defaultPath = sourceInfo.outPath + "/default.nix";
+      defaultNix = import defaultPath;
+      defaultArgs = builtins.functionArgs defaultNix;
+      hadDefaultValues = builtins.all (withDefault: withDefault) (builtins.attrValues defaultArgs);
+      defaultExists = isFlake && builtins.pathExists defaultPath;
+      defaultGood = builtins.tryEval (
+        defaultExists && builtins.isFunction defaultNix && defaultArgs ? inputsOverrides && hadDefaultValues
+      );
       flakePath = sourceInfo.outPath + "/flake.nix";
       flakeExists = isFlake && builtins.pathExists flakePath;
-      allGood = builtins.tryEval flakeExists;
+      flakeGood = builtins.tryEval flakeExists;
     in
-    if allGood.success && allGood.value then
+    if defaultGood.success && defaultGood.value then
+      mkDefaultWithInputsInput name sourceInfo defaultNix
+    else if flakeGood.success && flakeGood.value then
       mkFlakeInput name sourceInfo (import flakePath)
     else
       sourceInfo // { inherit sourceInfo; };
+
+  mkDefaultWithInputsInput =
+    name: sourceInfo: defaultNix:
+    let
+      inputsOverrides =
+        let
+          recFollows =
+            let
+              follows =
+                input:
+                isFollows inputs.${input}
+                && (
+                  let
+                    followRoot = builtins.head (builtins.split "/" inputs.${input}.follows);
+                  in
+                  followRoot == name || follows followRoot
+                );
+            in
+            [ name ] ++ builtins.filter follows (builtins.attrNames inputs);
+        in
+        removeAttrs allInputs recFollows
+        // (builtins.mapAttrs (sub: spec: resolveSubInput name sub spec) (inputs.${name}.inputs or { }));
+      outputs = defaultNix { inherit inputsOverrides; };
+      self =
+        sourceInfo
+        // outputs
+        // {
+          _type = "flake";
+          inputs = outputs.inputs or { inherit self; };
+          inherit outputs sourceInfo;
+        };
+    in
+    self;
 
   mkFlakeInput =
     name: sourceInfo: flake:
@@ -127,42 +170,14 @@ let
         builtins.functionArgs flake.outputs
       );
       nonEmptyInputs = direct != { } || indirect != { };
-      inputs =
-        if nonEmptyInputs then
-          indirect // direct
-        else
-          # Assume inputs are not handled by flake, but output function
-          # may still accept inputs overrides: we give it allInputs minus
-          # those that would obviously trigger infinite recursion
-          # (inputs defined as follows of inputs of the flake we are importing)
-          # plus inputs overrides declared for this flake.
-          let
-            recFollows =
-              let
-                follows =
-                  input:
-                  isFollows topLevelInputs.${input}
-                  && (
-                    let
-                      followRoot = builtins.head (builtins.split "/" topLevelInputs.${input}.follows);
-                    in
-                    followRoot == name || follows followRoot
-                  );
-              in
-              [ name ] ++ builtins.filter follows (builtins.attrNames topLevelInputs);
-          in
-          removeAttrs allInputs recFollows
-          // (builtins.mapAttrs (sub: spec: resolveSubInput name sub spec) (
-            topLevelInputs.${name}.inputs or { }
-          ));
-      outputs = flake.outputs (inputs // { inherit self; });
+      inputs = indirect // direct // { inherit self; };
+      outputs = flake.outputs inputs;
       self =
         sourceInfo
         // outputs
         // {
           _type = "flake";
-          inputs = if nonEmptyInputs then inputs else outputs.inputs or { inherit self; };
-          inherit outputs sourceInfo;
+          inherit outputs inputs sourceInfo;
         };
     in
     self;

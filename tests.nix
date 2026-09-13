@@ -360,7 +360,7 @@ in
       (with-inputs
         {
           my-lib = mkSrc ./fixtures/fake-flake;
-          with-inputs-dep = mkSrc ./fixtures/with-inputs-flake;
+          with-inputs-dep = mkSrc ./fixtures/with-inputs-project;
         }
         {
           my-lib.inputs.nixpkgs.follows = "with-inputs-dep/nixpkgs2";
@@ -375,7 +375,7 @@ in
       (with-inputs
         {
           my-lib = mkSrc ./fixtures/fake-flake;
-          with-inputs-dep = mkSrc ./fixtures/with-inputs-flake;
+          with-inputs-dep = mkSrc ./fixtures/with-inputs-project;
         }
         {
           my-lib = s: { inputs.nixpkgs.follows = "with-inputs-dep/nixpkgs2"; };
@@ -422,7 +422,7 @@ in
       (with-inputs
         {
           my-lib = mkFlake { nixpkgs = mkSrc "/nested-nixpkgs"; } { };
-          with-inputs-dep = mkSrc ./fixtures/with-inputs-flake;
+          with-inputs-dep = mkSrc ./fixtures/with-inputs-project;
         }
         {
           with-inputs-dep.inputs.nixpkgs2.follows = "my-lib/nixpkgs";
